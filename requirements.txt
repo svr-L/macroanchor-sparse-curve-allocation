@@ -1,0 +1,7 @@
+| strategy                                     | role                |   ann_ret |   ann_vol |   Sharpe |   MaxDD |   NW_t_mean |   ann_turnover |
+|:---------------------------------------------|:--------------------|----------:|----------:|---------:|--------:|------------:|---------------:|
+| E_10Y_timing_dynamicTC                       | benchmark           |      1.51 |      4.78 |    0.317 |  -24.03 |        1.74 |           0.69 |
+| V3_G1_sparse_core_vol_cost_hurdle_dynamicTC  | headline_sparse_vol |      1.81 |      3.09 |    0.586 |  -14.68 |        2.64 |           1.62 |
+| V3_G2_sparse_core_dv01_cost_hurdle_dynamicTC | rates_native_dv01   |      1.79 |      3.11 |    0.576 |  -15    |        2.57 |           1.62 |
+| V3_G4_core_tail_es_cost_hurdle_dynamicTC     | tail_es             |      1.71 |      2.93 |    0.585 |  -15    |        2.62 |           1.66 |
+| V3_G1_sparse_core_vol_cost_hurdle_fixed10bp  | fixed10_check       |      1.65 |      3.09 |    0.535 |  -15.26 |      nan    |           1.62 |
