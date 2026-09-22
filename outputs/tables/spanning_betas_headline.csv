@@ -1,0 +1,12 @@
+strategy,test,regressor,beta,beta_t_NW
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,curve_factor_LSC,Curvature,1.8773,2.9282
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,curve_factor_LSC,Level,-0.4144,-1.3426
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,curve_factor_LSC,Slope,1.7396,3.2281
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,eligible_tenor_span,Tenor_10Y,-0.2110,-1.6253
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,eligible_tenor_span,Tenor_2Y,-0.6701,-1.1688
+...,...,...,...,...
+V3_G4_core_tail_es_smooth_a035_b05_dynamicTC,eligible_tenor_span,Tenor_2Y,-0.5384,-1.1621
+V3_G4_core_tail_es_smooth_a035_b05_dynamicTC,eligible_tenor_span,Tenor_3Y,-0.3152,-0.7475
+V3_G4_core_tail_es_smooth_a035_b05_dynamicTC,eligible_tenor_span,Tenor_5Y,0.4891,1.8898
+V3_G4_core_tail_es_smooth_a035_b05_dynamicTC,eligible_tenor_span,Tenor_7Y,0.4937,2.8272
+V3_G4_core_tail_es_smooth_a035_b05_dynamicTC,parent_10Y_timing,E_10Y_timing,0.4527,13.0207
