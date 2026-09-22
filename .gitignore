@@ -1,0 +1,12 @@
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
+*.pyc
+*.pyo
+.env
+.venv/
+venv/
+macroanchor_curve_rv_cache/
+macroanchor_curve_rv_v3_outputs/
+data/raw/
+data/cache/

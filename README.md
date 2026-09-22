@@ -1,112 +1,245 @@
 # MacroAnchor Sparse Curve Allocation
 
-Sparse yield-curve allocation using macro-anchored term-premium forecasts.
+**Cost-aware sparse yield-curve allocation built on macro-anchored term-premium forecasts.**
 
-This repository is a portfolio-construction spin-off of the parent `macro-anchored-bond-risk-premia` research project. The parent project asks whether a macro-consistent short-rate anchor can generate bond-risk-premium forecasts. This repository asks a different question:
+This repository isolates the **portfolio-construction layer** of the broader Macro-Anchored Bond Risk Premia research program. The parent project asks whether a macro-consistent short-rate anchor contains information about future bond excess returns. This project asks the next question:
 
-> Can those forecasts be converted into sparse, cost-aware tenor portfolios that improve the risk-adjusted profile of duration-risk-premium timing?
+> **Can the cross-tenor forecast surface be converted into a sparse, implementable bond portfolio that improves on simple 10Y timing — and does the portfolio-construction layer add incremental return beyond the parent signal and standard curve exposures?**
 
-The answer from the current evidence is **yes, with the right interpretation**. This is not marketed as duration-neutral curve relative value. It is a sparse tenor-allocation framework: the strategy starts from the tenor with the strongest expected excess return and adds other curve exposures only when they improve the risk-adjusted profile under conditional volatility, DV01/yield-shock risk, or tail-risk criteria.
+The current evidence says **yes for the parent-signal comparison, with more qualified evidence against stricter static-tenor and curve-factor spans**.
 
-## Core result
+---
 
-The V3 implementation improves the risk-adjusted profile of a 10Y timing benchmark while keeping turnover materially lower than the raw greedy V2 allocation.
+## Headline result
 
-| Strategy | Cost model | Ann. return | Ann. vol | Sharpe | MaxDD | NW t-stat | Ann. turnover | Interpretation |
-|---|---:|---:|---:|---:|---:|---:|---:|---|
-| 10Y timing benchmark | dynamic TC | 1.51% | 4.78% | 0.32 | -24.03% | 1.74 | 0.69x | benchmark signal applied only to 10Y |
-| Sparse core, conditional vol | dynamic TC | 1.81% | 3.09% | 0.59 | -14.68% | 2.64 | 1.62x | headline allocation candidate |
-| Sparse core, conditional DV01 | dynamic TC | 1.79% | 3.11% | 0.58 | about -15% | 2.57 | 1.62x | rates-native risk version |
-| Sparse core, tail ES | dynamic TC | 1.71% | 2.93% | 0.59 | about -15% | 2.62 | 1.66x | tail-risk version |
-| Sparse core, conditional vol | fixed 10bp | 1.65% | 3.09% | 0.54 | -15.26% | n/a | 1.62x | conservative fixed-cost check |
+The mechanically selected headline specification is the **G1 sparse-core conditional-volatility allocator with an implementation hurdle**, evaluated net of the dynamic transaction-cost proxy.
 
-The economic message is not that the sparse portfolio always has the highest absolute return. The message is that it delivers similar or better return than 10Y timing with lower volatility, lower drawdown, and stronger statistical evidence.
+| Strategy | Ann. return | Ann. vol | Sharpe | MaxDD | NW t-stat | Ann. turnover |
+|---|---:|---:|---:|---:|---:|---:|
+| 10Y timing benchmark | **1.46%** | 4.77% | 0.31 | -25.28% | 1.68 | 0.69x |
+| **G1 sparse allocator** | **1.78%** | **3.09%** | **0.58** | **-14.68%** | **2.59** | 1.65x |
+| G2 DV01-risk variant | 1.76% | 3.10% | 0.57 | -15.37% | 2.53 | 1.65x |
+| G4 tail-ES variant | 1.68% | **2.92%** | 0.57 | -14.68% | 2.57 | 1.68x |
+| G3 short-DV01 challenger | **2.16%** | 3.80% | 0.57 | **-13.31%** | **2.77** | 3.46x |
+
+The headline G1 allocator therefore improves the parent 10Y timing implementation on **Sharpe, volatility, drawdown and mean-return significance**, while keeping the construction sparse and interpretable.
+
+![Headline Sharpe](outputs/figures/headline_sharpe.png)
+
+![Headline drawdown](outputs/figures/headline_max_drawdown.png)
+
+---
+
+## The new result: incremental alpha from portfolio construction
+
+V4 adds three pre-specified spanning regressions with **Newey-West/HAC inference (12 monthly lags)**:
+
+1. **Parent-signal spanning:** sparse allocator vs the cost-aware 10Y timing strategy.
+2. **Eligible-tenor spanning:** sparse allocator vs a static linear combination of the same 2Y/3Y/5Y/7Y/10Y excess-return series available to the allocator.
+3. **Curve-factor spanning:** sparse allocator vs fixed Level/Slope/Curvature factor-mimicking portfolios. Factor loadings are estimated once using pre-evaluation yield changes and then frozen.
+
+### Headline G1 allocator
+
+| Spanning test | Alpha p.a. | NW t-stat | R² | Interpretation |
+|---|---:|---:|---:|---|
+| vs 10Y timing | **0.97%** | **2.91** | 72.7% | strong evidence that sparse construction adds return beyond the parent timing rule |
+| vs eligible tenor span | 0.77% | 1.61 | 56.1% | positive residual alpha; suggestive rather than decisive |
+| vs Level/Slope/Curvature | 0.75% | 1.67 | 56.1% | positive residual alpha after standard curve-factor exposures; suggestive |
+
+The important distinction is that the G1 allocator is **not merely a lower-volatility repackaging of the 10Y signal**: it retains about **1% annualized HAC alpha** against the parent implementation.
+
+### G3 short-DV01 challenger
+
+The higher-turnover G3 specification is statistically stronger in the spanning tests:
+
+| Spanning test | Alpha p.a. | NW t-stat | R² |
+|---|---:|---:|---:|
+| vs 10Y timing | **1.13%** | **3.41** | 77.7% |
+| vs eligible tenor span | **1.15%** | **2.01** | 41.0% |
+| vs Level/Slope/Curvature | **1.19%** | **2.05** | 41.0% |
+
+G3 is therefore a useful **challenger / falsification result**: incremental alpha survives even against the stricter static-tenor and curve-factor spans. It is not the headline portfolio because turnover is roughly twice G1 and the short-hedge layer is more implementation-sensitive.
+
+![Spanning alpha](outputs/figures/spanning_alpha.png)
+
+---
 
 ## Research design
 
-The allocation is deliberately sparse and interpretable:
+The construction is intentionally sparse rather than a generic optimizer:
 
-1. Estimate macro-anchored term-premium forecasts by tenor.
-2. Select the best pure expected-return tenor as the core holding.
-3. Add other tenors only if they improve the risk-adjusted objective.
-4. Evaluate risk using conditional return volatility, conditional DV01/yield-shock risk, or rolling tail ES.
-5. Apply turnover controls, smoothing, quarterly variants, and cost hurdles.
-6. Evaluate against static 10Y, equal-weight 2Y-10Y, and 10Y timing benchmarks.
+```text
+macro anchor
+    ↓
+model-implied term-premium forecasts by tenor
+    ↓
+rank forecasted excess returns across 2Y / 3Y / 5Y / 7Y / 10Y
+    ↓
+select strongest pure-return tenor as the core
+    ↓
+add satellite tenors only when they improve the risk-adjusted objective
+    ↓
+conditional volatility / DV01-shock / tail-ES risk controls
+    ↓
+smoothing + no-trade bands + cost hurdles + quarterly variants
+    ↓
+dynamic transaction costs
+    ↓
+spanning tests vs parent signal, eligible tenor span and L/S/C factors
+```
 
-## What this is, and what it is not
+The core principle is **forecast first, construction second**. The allocator does not diversify mechanically: additional tenors are accepted only when the marginal improvement is sufficient.
 
-This repository is:
+---
 
-- a sparse yield-curve allocation engine;
-- a cost-aware extension of a macro-anchored bond-risk-premium signal;
-- a portfolio-construction experiment linking forecast strength, conditional risk, and sparse tenor selection.
+## What the project establishes
 
-It is not:
+**Supported by the current run**
 
-- a fully market-neutral relative-value system;
-- a claim that all yield-curve residuals are tradable;
-- a production trading system.
+- Sparse curve allocation materially improves the risk-adjusted profile of the 10Y timing benchmark.
+- Conditional return-volatility, DV01/yield-shock and tail-ES objectives lead to broadly consistent sparse allocations.
+- The headline G1 allocator retains statistically significant incremental alpha versus the parent 10Y timing strategy.
+- The G3 challenger retains alpha at roughly the 2-sigma level against both the eligible-tenor return span and fixed Level/Slope/Curvature factors.
+- Transaction-cost controls reduce turnover materially relative to the raw greedy construction.
 
-For pure duration-neutral curve relative value, see the separate `macroanchor-curve-relative-value` repository.
+**Not claimed**
+
+- This is **not** a duration-neutral relative-value strategy.
+- Positive G1 alpha against the eligible-tenor and L/S/C spans is **suggestive**, not 5%-level evidence.
+- The cost model is an implementation proxy, not an executable quote stream.
+- This is not a production trading system.
+
+For duration-neutral curve relative value, see the separate `macroanchor-curve-relative-value` project.
+
+---
+
+## Figures
+
+### Net cumulative performance
+
+The executed notebook reports cumulative active returns for the main sparse variants and benchmarks under the dynamic cost model.
+
+![Cumulative performance](outputs/figures/cumulative_performance.png)
+
+### Return-risk profile
+
+![Return volatility](outputs/figures/return_volatility.png)
+
+---
 
 ## Repository structure
 
 ```text
 macroanchor-sparse-curve-allocation/
 ├── README.md
-├── requirements.txt
-├── environment.yml
 ├── LICENSE
 ├── CITATION.cff
+├── requirements.txt
+├── environment.yml
 ├── notebooks/
-│   ├── 01_cost_aware_sparse_curve_allocation_v3_executed.ipynb
+│   ├── 01_cost_aware_sparse_curve_allocation_v4_spanning_executed.ipynb
 │   └── archive/
 │       ├── 00_v2_sparse_greedy_parallel_executed.ipynb
+│       ├── 00_v3_cost_aware_sparse_greedy_executed.ipynb
 │       └── reference_stress_weighted_sparse_saa.ipynb
 ├── docs/
 │   ├── methodology.md
+│   ├── results_and_spanning.md
 │   ├── transaction_costs.md
+│   ├── claims_and_limitations.md
 │   ├── relation_to_parent_project.md
-│   ├── interpretation_and_claims.md
 │   ├── replication_guide.md
 │   └── roadmap.md
 ├── outputs/
 │   ├── tables/
+│   │   ├── headline_performance.csv
+│   │   ├── headline_spanning.csv
+│   │   ├── performance_dynamic_cost.csv
+│   │   ├── spanning_summary_full.csv
+│   │   ├── spanning_betas_headline.csv
+│   │   ├── curve_factor_loadings.csv
+│   │   └── attribution_dynamic_cost.csv
 │   └── figures/
-├── data/
-│   └── README.md
-└── src/
+│       ├── headline_sharpe.png
+│       ├── headline_max_drawdown.png
+│       ├── spanning_alpha.png
+│       ├── return_volatility.png
+│       └── cumulative_performance.png
+└── data/
     └── README.md
 ```
 
-## Headline figure
+---
 
-![Sparse allocation comparison](outputs/figures/sparse_allocation_headline.png)
+## Main notebook
 
-## Notebooks
+`notebooks/01_cost_aware_sparse_curve_allocation_v4_spanning_executed.ipynb` is the current research notebook. It contains the full workflow:
 
-- `01_cost_aware_sparse_curve_allocation_v3_executed.ipynb` is the main notebook.
-- `archive/00_v2_sparse_greedy_parallel_executed.ipynb` documents the broader V2 search that separated sparse allocation from pure residual RV.
-- `archive/reference_stress_weighted_sparse_saa.ipynb` is included as a reference for the sparse/greedy allocation design pattern. It is not required to run the rates notebook.
+- public curve/macro data retrieval and caching;
+- macro-anchor construction;
+- affine/Hull-White-style term-premium signal formation;
+- cross-tenor expected-return scoring;
+- sparse greedy allocators G1–G4;
+- smoothing, no-trade and implementation-hurdle variants;
+- dynamic transaction-cost estimates;
+- return attribution;
+- Newey-West mean tests;
+- parent-signal, tenor-space and curve-factor spanning regressions.
 
-## Transaction costs
+The archived V2/V3 notebooks are retained only to document the research path and are not required for the current result.
 
-The V3 notebook uses a dynamic transaction-cost proxy based on Corwin-Schultz ETF-implied half-spreads, with fixed-bps checks as sensitivity tests. Treasury CMT series do not provide executable bid-ask spreads; the cost layer therefore uses liquid Treasury ETF proxies when OHLC data are available, and fixed-bps assumptions as fallback/sensitivity.
+---
 
-## Claim hierarchy
+## Data and transaction costs
 
-| Claim | Status |
-|---|---|
-| Macro-anchored term-premium forecasts are useful for duration timing | inherited from parent project |
-| Sparse tenor allocation improves the risk-adjusted profile of 10Y timing | supported |
-| Conditional DV01/yield-shock risk is competitive with generic return volatility | supported |
-| Tail-risk-based sparse allocation gives similar conclusions | supported |
-| The strategy is pure curve relative value | not claimed |
+The main curve data use public U.S. Treasury/FRED series. Raw data are not redistributed. See [`data/README.md`](data/README.md).
 
-## License
+The headline dynamic cost layer uses **lagged Corwin-Schultz high-low spread estimates on liquid Treasury ETF proxies**, translated to one-way costs. Fixed-bps assumptions remain useful as sensitivity checks. Because constant-maturity Treasury data do not contain executable bid/ask quotes, transaction-cost results should be interpreted as **implementation diagnostics**, not live execution estimates.
 
-MIT License. See `LICENSE`.
+See [`docs/transaction_costs.md`](docs/transaction_costs.md) for details.
+
+---
+
+## Reproducibility
+
+```bash
+pip install -r requirements.txt
+jupyter notebook notebooks/01_cost_aware_sparse_curve_allocation_v4_spanning_executed.ipynb
+```
+
+The notebook caches public downloads locally. A fresh rerun can differ slightly from the committed executed notebook because public macro/market series can be revised or extended.
+
+See [`docs/replication_guide.md`](docs/replication_guide.md).
+
+---
+
+## Relation to the parent research
+
+This repository does **not** duplicate the main Macro-Anchored Bond Risk Premia paper. The research stack is deliberately separated:
+
+```text
+Macro-Anchored Bond Risk Premia
+    signal formation / OOS bond-return predictability
+             │
+             ├── MacroAnchor Sparse Curve Allocation
+             │      sparse, cost-aware portfolio construction
+             │
+             └── MacroAnchor Curve Relative Value
+                    duration-neutral residual curve tests
+```
+
+That separation matters: the sparse allocator is allowed to carry duration risk because its object is **portfolio construction**, not market neutrality.
+
+---
+
+## Current research frontier
+
+The next highest-value test is **stability of spanning alpha across subperiods / rolling windows**, especially for G1 and G3. The objective is not to search for a new strategy, but to determine whether incremental alpha is persistent or concentrated in a small number of regimes.
+
+See [`docs/roadmap.md`](docs/roadmap.md).
+
+---
 
 ## Disclaimer
 
-This repository is for research and educational purposes only. It is not investment advice, not a production trading system, and not a recommendation to trade any instrument.
+Research and educational use only. This repository is not investment advice, not a production trading system, and not a recommendation to transact in any security or derivative.
