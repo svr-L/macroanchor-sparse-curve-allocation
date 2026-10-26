@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this repository, please cite it as below."
+title: "MacroAnchor Sparse Curve Allocation"
+type: software
+authors:
+  - family-names: "Lauriola"
+    given-names: "Saverio"
+version: "0.4.0"
+date-released: "2026-09-22"
+license: MIT
+abstract: >-
+  Cost-aware sparse yield-curve allocation using macro-anchored term-premium forecasts,
+  conditional volatility/DV01/tail-risk objectives, and spanning regressions against the
+  parent 10Y timing strategy, eligible tenor returns, and fixed Level/Slope/Curvature factors.

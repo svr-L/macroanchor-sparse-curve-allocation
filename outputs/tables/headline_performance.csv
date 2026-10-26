@@ -1,0 +1,6 @@
+name,role,ann_ret,ann_vol,Sharpe,MaxDD,NW_t,ann_turnover,cost_model,n
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,headline sparse-vol allocator,0.0178,0.0309,0.5764,-0.1468,2.591,1.648,corwin_schultz_etf_proxy_half_spread,470
+V3_G4_core_tail_es_cost_hurdle_dynamicTC,tail-ES variant,0.0168,0.0292,0.5746,-0.1468,2.5732,1.6831,corwin_schultz_etf_proxy_half_spread,470
+V3_G3_core_short_dv01_cost_hurdle_dynamicTC,short-DV01 challenger,0.0216,0.038,0.5685,-0.1331,2.7735,3.4624,corwin_schultz_etf_proxy_half_spread,470
+V3_G2_sparse_core_dv01_cost_hurdle_dynamicTC,DV01-risk variant,0.0176,0.031,0.5665,-0.1537,2.5303,1.6497,corwin_schultz_etf_proxy_half_spread,470
+E_10Y_timing_dynamicTC,10Y timing benchmark,0.0146,0.0477,0.3063,-0.2528,1.6776,0.6894,corwin_schultz_etf_proxy_half_spread,470

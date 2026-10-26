@@ -1,0 +1,7 @@
+strategy,test,alpha_ann,alpha_t_NW,R2,condition_number,n
+V3_G3_core_short_dv01_cost_hurdle_dynamicTC,curve_factor_LSC,0.0119,2.0531,0.4096,13.4639,470
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,curve_factor_LSC,0.0075,1.6682,0.5606,13.4639,470
+V3_G3_core_short_dv01_cost_hurdle_dynamicTC,eligible_tenor_span,0.0115,2.0137,0.4101,32.3143,470
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,eligible_tenor_span,0.0077,1.6079,0.5607,32.3143,470
+V3_G3_core_short_dv01_cost_hurdle_dynamicTC,parent_10Y_timing,0.0113,3.4122,0.7766,1.0,470
+V3_G1_sparse_core_vol_cost_hurdle_dynamicTC,parent_10Y_timing,0.0097,2.9069,0.7271,1.0,470
