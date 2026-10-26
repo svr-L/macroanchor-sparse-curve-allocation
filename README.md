@@ -1,245 +1,265 @@
-# MacroAnchor Sparse Curve Allocation
+# Multi-Asset Scenario Engine
 
-**Cost-aware sparse yield-curve allocation built on macro-anchored term-premium forecasts.**
+**Physical-measure multi-asset predictive distributions, adaptive cross-asset dependence, horizon repricing, and objective-aware model selection.**
 
-This repository isolates the **portfolio-construction layer** of the broader Macro-Anchored Bond Risk Premia research program. The parent project asks whether a macro-consistent short-rate anchor contains information about future bond excess returns. This project asks the next question:
+This repository jointly models and reprices **US equities, Treasury rates, credit spreads and FX** over
+1W / 1M / 3M / 1Y horizons. It combines asset-class factor models, filtered historical simulation,
+empirical block resampling, full instrument repricing and distributional and tail-risk analysis with explicit research layers for **cross-asset dependence** and
+**objective-aware scenario-law selection**.
 
-> **Can the cross-tenor forecast surface be converted into a sparse, implementable bond portfolio that improves on simple 10Y timing — and does the portfolio-construction layer add incremental return beyond the parent signal and standard curve exposures?**
+The project now asks a broader question than “can I generate scenarios?”:
 
-The current evidence says **yes for the parent-signal comparison, with more qualified evidence against stricter static-tenor and curve-factor spans**.
+> **How should a multi-asset joint distribution be represented, and which extra modelling layers
+> actually improve it out of sample?**
 
----
-
-## Headline result
-
-The mechanically selected headline specification is the **G1 sparse-core conditional-volatility allocator with an implementation hurdle**, evaluated net of the dynamic transaction-cost proxy.
-
-| Strategy | Ann. return | Ann. vol | Sharpe | MaxDD | NW t-stat | Ann. turnover |
-|---|---:|---:|---:|---:|---:|---:|
-| 10Y timing benchmark | **1.46%** | 4.77% | 0.31 | -25.28% | 1.68 | 0.69x |
-| **G1 sparse allocator** | **1.78%** | **3.09%** | **0.58** | **-14.68%** | **2.59** | 1.65x |
-| G2 DV01-risk variant | 1.76% | 3.10% | 0.57 | -15.37% | 2.53 | 1.65x |
-| G4 tail-ES variant | 1.68% | **2.92%** | 0.57 | -14.68% | 2.57 | 1.68x |
-| G3 short-DV01 challenger | **2.16%** | 3.80% | 0.57 | **-13.31%** | **2.77** | 3.46x |
-
-The headline G1 allocator therefore improves the parent 10Y timing implementation on **Sharpe, volatility, drawdown and mean-return significance**, while keeping the construction sparse and interpretable.
-
-![Headline Sharpe](outputs/figures/headline_sharpe.png)
-
-![Headline drawdown](outputs/figures/headline_max_drawdown.png)
+**Current public stance:** hierarchical global/local dependence is the structured research architecture;
+blockwise empirical dependence remains the hard benchmark; direct-horizon simulation is the default;
+duration-conditioned PIT pooling remains an optional challenger.
 
 ---
 
-## The new result: incremental alpha from portfolio construction
+## Why this project is different
 
-V4 adds three pre-specified spanning regressions with **Newey-West/HAC inference (12 monthly lags)**:
+The framework separates five modelling questions that are often mixed together:
 
-1. **Parent-signal spanning:** sparse allocator vs the cost-aware 10Y timing strategy.
-2. **Eligible-tenor spanning:** sparse allocator vs a static linear combination of the same 2Y/3Y/5Y/7Y/10Y excess-return series available to the allocator.
-3. **Curve-factor spanning:** sparse allocator vs fixed Level/Slope/Curvature factor-mimicking portfolios. Factor loadings are estimated once using pre-evaluation yield changes and then frozen.
+1. **Marginal dynamics** — conditional-volatility filtered historical simulation.
+2. **Duration / severity** — shocks can be interpreted relative to their own horizon-specific empirical law.
+3. **Cross-asset dependence** — blockwise empirical resampling vs a global/local hierarchy.
+4. **Propagation** — direct horizon forecasts vs recursive short-horizon propagation.
+5. **Repricing and adjudication** — full instrument repricing plus OOS proper multivariate scoring.
 
-### Headline G1 allocator
-
-| Spanning test | Alpha p.a. | NW t-stat | R² | Interpretation |
-|---|---:|---:|---:|---|
-| vs 10Y timing | **0.97%** | **2.91** | 72.7% | strong evidence that sparse construction adds return beyond the parent timing rule |
-| vs eligible tenor span | 0.77% | 1.61 | 56.1% | positive residual alpha; suggestive rather than decisive |
-| vs Level/Slope/Curvature | 0.75% | 1.67 | 56.1% | positive residual alpha after standard curve-factor exposures; suggestive |
-
-The important distinction is that the G1 allocator is **not merely a lower-volatility repackaging of the 10Y signal**: it retains about **1% annualized HAC alpha** against the parent implementation.
-
-### G3 short-DV01 challenger
-
-The higher-turnover G3 specification is statistically stronger in the spanning tests:
-
-| Spanning test | Alpha p.a. | NW t-stat | R² |
-|---|---:|---:|---:|
-| vs 10Y timing | **1.13%** | **3.41** | 77.7% |
-| vs eligible tenor span | **1.15%** | **2.01** | 41.0% |
-| vs Level/Slope/Curvature | **1.19%** | **2.05** | 41.0% |
-
-G3 is therefore a useful **challenger / falsification result**: incremental alpha survives even against the stricter static-tenor and curve-factor spans. It is not the headline portfolio because turnover is roughly twice G1 and the short-hedge layer is more implementation-sensitive.
-
-![Spanning alpha](outputs/figures/spanning_alpha.png)
-
----
-
-## Research design
-
-The construction is intentionally sparse rather than a generic optimizer:
-
-```text
-macro anchor
-    ↓
-model-implied term-premium forecasts by tenor
-    ↓
-rank forecasted excess returns across 2Y / 3Y / 5Y / 7Y / 10Y
-    ↓
-select strongest pure-return tenor as the core
-    ↓
-add satellite tenors only when they improve the risk-adjusted objective
-    ↓
-conditional volatility / DV01-shock / tail-ES risk controls
-    ↓
-smoothing + no-trade bands + cost hurdles + quarterly variants
-    ↓
-dynamic transaction costs
-    ↓
-spanning tests vs parent signal, eligible tenor span and L/S/C factors
+```mermaid
+flowchart LR
+    A[Market data] --> B[Asset-class risk drivers]
+    B --> C[Marginal dynamics / FHS]
+    C --> D1[Blockwise dependence]
+    C --> D2[Hierarchical global/local dependence]
+    B --> P[Optional duration-conditioned PIT]
+    P --> D1
+    P --> D2
+    D1 --> E[Joint horizon scenarios]
+    D2 --> E
+    E --> F[Instrument repricing]
+    F --> G[Portfolio VaR / ES / tail attribution]
+    E --> H[OOS Energy + Variogram scores]
 ```
 
-The core principle is **forecast first, construction second**. The allocator does not diversify mechanically: additional tenors are accepted only when the marginal improvement is sufficient.
+---
+
+## Core engine
+
+**Equities** — configurable market-proxy / APT / statistical factor structures, compressed residual risk,
+conditional-volatility FHS.
+
+**Rates** — Treasury key-rate curve modelling, PCA/curve factors, full-curve coupon-bond repricing.
+
+**Credit** — spread factors, long-history Moody's stress backbone, horizon-consistent bridge,
+migration/default and corporate-bond repricing.
+
+**FX** — historical spot dynamics, cross-asset scenarios and FX-forward repricing.
+
+**Portfolio layer** — capital-normalised returns, VaR/ES, tail contributions, long-only minimum-CVaR search
+and independent fresh-draw evaluation.
 
 ---
 
-## What the project establishes
+## Cross-asset dependence: hard benchmark vs research architecture
 
-**Supported by the current run**
+The original blockwise engine is intentionally retained because it is empirical, parsimonious and hard
+to beat consistently. The hierarchical challenger decomposes
 
-- Sparse curve allocation materially improves the risk-adjusted profile of the 10Y timing benchmark.
-- Conditional return-volatility, DV01/yield-shock and tail-ES objectives lead to broadly consistent sparse allocations.
-- The headline G1 allocator retains statistically significant incremental alpha versus the parent 10Y timing strategy.
-- The G3 challenger retains alpha at roughly the 2-sigma level against both the eligible-tenor return span and fixed Level/Slope/Curvature factors.
-- Transaction-cost controls reduce turnover materially relative to the raw greedy construction.
+\[
+d_t = \Lambda g_t + u_t,
+\]
 
-**Not claimed**
+with a low-dimensional global span chosen to absorb **cross-block covariance** while residual risk remains local.
 
-- This is **not** a duration-neutral relative-value strategy.
-- Positive G1 alpha against the eligible-tenor and L/S/C spans is **suggestive**, not 5%-level evidence.
-- The cost model is an implementation proxy, not an executable quote stream.
-- This is not a production trading system.
+![Architecture Energy Score](figures/architecture_energy_score.png)
 
-For duration-neutral curve relative value, see the separate `macroanchor-curve-relative-value` project.
+In the frozen lean adjudication, hierarchical specifications delivered the best direct-horizon Energy
+Score at 1W, 3M and 1Y; blockwise was best at 1M. The conclusion is not universal dominance: **hierarchy
+is the research model, blockwise is the permanent hard benchmark.**
 
 ---
 
-## Figures
+## Duration-conditioned probability representation
 
-### Net cumulative performance
+For a realised block of length \(L_b\),
 
-The executed notebook reports cumulative active returns for the main sparse variants and benchmarks under the dynamic cost model.
+\[
+Y_b^{(L_b)} = \sum_{\tau=1}^{L_b} x_{t+\tau},
+\]
 
-![Cumulative performance](outputs/figures/cumulative_performance.png)
+and each component can be transformed against its own \(L_b\)-day empirical law,
 
-### Return-risk profile
+\[
+U_{b,j}=\widehat F_j^{(L_b)}(Y_{b,j}^{(L_b)}),
+\qquad
+Z_{b,j}=\Phi^{-1}(U_{b,j}).
+\]
 
-![Return volatility](outputs/figures/return_volatility.png)
+This separates raw horizon scale from statistical severity and makes heterogeneous block durations
+poolable in probability space. The PIT layer remains an **explicit challenger**, because its OOS benefit
+is horizon-dependent rather than universal.
+
+---
+
+## OOS model adjudication
+
+The research notebooks compare
+
+\[
+\{\text{raw duration},\text{PIT pooled}\}
+\times
+\{\text{blockwise},\text{hierarchical}\}
+\times
+\{\text{direct-H},\text{recursive-1W}\}.
+\]
+
+Two proper scores are used:
+
+- **Energy Score** for the full joint predictive distribution;
+- **Variogram Score** for dependence-sensitive fit.
+
+![Factorial main effects](figures/factorial_energy_main_effects.png)
+
+The current evidence keeps **direct-H** as the default. Recursive-1W can fix selected pairwise
+relationships but does not improve the joint predictive distribution consistently.
+
+![Variogram components](figures/hierarchy_variogram_components.png)
+
+The hierarchy's gains are selective across equity/rates/credit/FX pairs, so component-level dependence
+diagnostics are retained rather than hidden behind one aggregate number.
+
+---
+
+
+## Objective-aware multi-horizon routing
+
+The engine does **not** assume that one scenario law must be optimal for every use case. Candidate laws
+can be selected point-in-time by horizon and by the statistical property that matters:
+
+| Objective | Primary loss | Why |
+|---|---|---|
+| `joint_distribution` | Energy Score | full multivariate predictive law |
+| `dependence` | Variogram Score | cross-asset dependence |
+| `marginals` | CRPS | coordinate-wise calibration |
+| `projections` | projection CRPS | economically relevant linear directions |
+| `tail_risk` | FZ0 VaR/ES score | joint VaR/ES forecast quality |
+| `density` | NLL | only when comparable predictive densities genuinely exist |
+
+The selector uses only validation observations available **before** the forecast date. It supports a hard
+winner, a paired **one-standard-error** rule that prefers simpler statistically indistinguishable models,
+and soft scenario mixtures.
+
+```python
+router = ObjectiveRouter(score_history, complexity=complexity, min_history=20)
+decision = router.select(
+    asof=forecast_date,
+    horizon="1M",
+    objective="joint_distribution",
+    policy="one_se",
+)
+```
+
+The router is deliberately downstream-agnostic. Risk systems, stress tests, pricing tools, portfolio
+construction engines or other consumers may use the resulting scenario law without becoming part of the
+Scenario Engine itself. Custom downstream decision losses can be routed through the same generic history
+schema while the decision logic stays external.
+
+---
+
+## Continuity with the v23 risk engine
+
+The research layer sits on top of a mature scenario/repricing backbone. Reference v23 95% VaR validation:
+
+![v23 VaR breach rates](figures/v23_var_breach_rates.png)
+
+| Horizon | OOS windows | Breach rate | Kupiec p | Conditional-coverage p |
+|---|---:|---:|---:|---:|
+| 1W | 219 | 4.1% | 0.533 | 0.559 |
+| 1M | 219 | 5.0% | 0.988 | 0.557 |
+| 3M | 73 | 2.7% | 0.334 | 0.593 |
+| 1Y | 19 | 5.3% | 0.958 | 0.942 |
+
+The 1Y row is descriptive rather than strong validation because the non-overlapping annual sample is small.
 
 ---
 
 ## Repository structure
 
 ```text
-macroanchor-sparse-curve-allocation/
+multi-asset-scenario-engine/
 ├── README.md
-├── LICENSE
-├── CITATION.cff
-├── requirements.txt
-├── environment.yml
+├── figures/
+├── results/
 ├── notebooks/
-│   ├── 01_cost_aware_sparse_curve_allocation_v4_spanning_executed.ipynb
-│   └── archive/
-│       ├── 00_v2_sparse_greedy_parallel_executed.ipynb
-│       ├── 00_v3_cost_aware_sparse_greedy_executed.ipynb
-│       └── reference_stress_weighted_sparse_saa.ipynb
-├── docs/
-│   ├── methodology.md
-│   ├── results_and_spanning.md
-│   ├── transaction_costs.md
-│   ├── claims_and_limitations.md
-│   ├── relation_to_parent_project.md
-│   ├── replication_guide.md
-│   └── roadmap.md
-├── outputs/
-│   ├── tables/
-│   │   ├── headline_performance.csv
-│   │   ├── headline_spanning.csv
-│   │   ├── performance_dynamic_cost.csv
-│   │   ├── spanning_summary_full.csv
-│   │   ├── spanning_betas_headline.csv
-│   │   ├── curve_factor_loadings.csv
-│   │   └── attribution_dynamic_cost.csv
-│   └── figures/
-│       ├── headline_sharpe.png
-│       ├── headline_max_drawdown.png
-│       ├── spanning_alpha.png
-│       ├── return_volatility.png
-│       └── cumulative_performance.png
-└── data/
-    └── README.md
+│   ├── 01_engine_standalone.ipynb
+│   ├── 02_dependence_architecture_ablation.ipynb
+│   ├── 03_duration_pit_factorial.ipynb
+│   ├── 04_validation_scores.ipynb
+│   └── 05_objective_aware_router.ipynb
+├── src/multi_asset_scenario_engine/
+│   ├── data.py
+│   ├── equity.py
+│   ├── factors.py
+│   ├── dynamics.py
+│   ├── simulation.py
+│   ├── dependence.py
+│   ├── duration.py
+│   ├── scoring.py
+│   ├── router.py
+│   ├── repricing.py
+│   ├── portfolio.py
+│   ├── backtesting.py
+│   └── diagnostics.py
+├── tests/
+└── docs/research_decisions.md
 ```
 
----
+### Notebook roles
 
-## Main notebook
-
-`notebooks/01_cost_aware_sparse_curve_allocation_v4_spanning_executed.ipynb` is the current research notebook. It contains the full workflow:
-
-- public curve/macro data retrieval and caching;
-- macro-anchor construction;
-- affine/Hull-White-style term-premium signal formation;
-- cross-tenor expected-return scoring;
-- sparse greedy allocators G1–G4;
-- smoothing, no-trade and implementation-hurdle variants;
-- dynamic transaction-cost estimates;
-- return attribution;
-- Newey-West mean tests;
-- parent-signal, tenor-space and curve-factor spanning regressions.
-
-The archived V2/V3 notebooks are retained only to document the research path and are not required for the current result.
+- `01_engine_standalone.ipynb` — **Run All engine**: data, drivers, scenarios, repricing, portfolio risk.
+- `02_dependence_architecture_ablation.ipynb` — blockwise vs hierarchical evidence.
+- `03_duration_pit_factorial.ipynb` — full lean representation × architecture × propagation research gate.
+- `04_validation_scores.ipynb` — fast reproduction of committed Energy/Variogram evidence.
+- `05_objective_aware_router.ipynb` — point-in-time horizon/objective routing and nested selection.
 
 ---
 
-## Data and transaction costs
-
-The main curve data use public U.S. Treasury/FRED series. Raw data are not redistributed. See [`data/README.md`](data/README.md).
-
-The headline dynamic cost layer uses **lagged Corwin-Schultz high-low spread estimates on liquid Treasury ETF proxies**, translated to one-way costs. Fixed-bps assumptions remain useful as sensitivity checks. Because constant-maturity Treasury data do not contain executable bid/ask quotes, transaction-cost results should be interpreted as **implementation diagnostics**, not live execution estimates.
-
-See [`docs/transaction_costs.md`](docs/transaction_costs.md) for details.
-
----
-
-## Reproducibility
+## Quick start
 
 ```bash
-pip install -r requirements.txt
-jupyter notebook notebooks/01_cost_aware_sparse_curve_allocation_v4_spanning_executed.ipynb
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -e .
+pytest -q
+jupyter lab notebooks/01_engine_standalone.ipynb
 ```
 
-The notebook caches public downloads locally. A fresh rerun can differ slightly from the committed executed notebook because public macro/market series can be revised or extended.
-
-See [`docs/replication_guide.md`](docs/replication_guide.md).
+A fresh standalone-engine run downloads public data from Yahoo Finance, FRED and Kenneth French sources.
 
 ---
 
-## Relation to the parent research
+## Research principles
 
-This repository does **not** duplicate the main Macro-Anchored Bond Risk Premia paper. The research stack is deliberately separated:
+1. **Complexity must earn its place OOS.**
+2. **Benchmarks stay strong.**
+3. **Negative results stay visible.**
 
-```text
-Macro-Anchored Bond Risk Premia
-    signal formation / OOS bond-return predictability
-             │
-             ├── MacroAnchor Sparse Curve Allocation
-             │      sparse, cost-aware portfolio construction
-             │
-             └── MacroAnchor Curve Relative Value
-                    duration-neutral residual curve tests
-```
-
-That separation matters: the sparse allocator is allowed to carry duration risk because its object is **portfolio construction**, not market neutrality.
+A challenger that improves one correlation but worsens the joint predictive distribution is not
+promoted to default.
 
 ---
 
-## Current research frontier
+## Next extension
 
-The next highest-value test is **stability of spanning alpha across subperiods / rolling windows**, especially for G1 and G3. The objective is not to search for a new strategy, but to determine whether incremental alpha is persistent or concentrated in a small number of regimes.
-
-See [`docs/roadmap.md`](docs/roadmap.md).
+The immediate research step is to run the objective-aware router on full point-in-time score histories,
+including repriced tail-risk losses, and test whether routing itself adds OOS value versus strong fixed-model
+benchmarks. A **commodities block** remains the next asset-class extension after that validation.
 
 ---
 
 ## Disclaimer
 
-Research and educational use only. This repository is not investment advice, not a production trading system, and not a recommendation to transact in any security or derivative.
+Quantitative-finance research project. Not investment advice and not a production trading or risk system.
